@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FrameGrabber Web - YouTube & Video Frame Extractor</title>
+<meta name="description" content="Extract high-quality screenshots from YouTube videos or local video files, right in your browser.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2220%22 fill=%22%234F46E5%22/><rect x=%2220%22 y=%2230%22 width=%2260%22 height=%2240%22 rx=%226%22 fill=%22white%22/><circle cx=%2250%22 cy=%2250%22 r=%2210%22 fill=%22%234F46E5%22/></svg>">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="dark">
+<div id="app">
+
+  <!-- Top Bar -->
+  <header class="topbar">
+    <div class="topbar-inner">
+      <span class="logo-mark">FG</span>
+      <span class="topbar-title">FrameGrabber</span>
+    </div>
+  </header>
+
+  <div id="storage-banner" class="storage-banner hidden">
+    <span class="storage-banner-icon">&#9888;&#65039;</span>
+    <span class="storage-banner-text">
+      Storage access is blocked here, so the gallery won't be saved after this tab closes &mdash;
+      download or share frames before leaving. Opening this page over http(s) (e.g. GitHub Pages
+      or a local server) instead of as a local file fixes this.
+    </span>
+    <button id="storage-banner-close" class="storage-banner-close" aria-label="Dismiss">&times;</button>
+  </div>
+
+  <main id="main-content">
+
+    <!-- ============ HOME VIEW ============ -->
+    <section id="view-home" class="view active">
+
+      <div class="banner">
+        <h1>FrameGrabber</h1>
+        <p>Extract high-quality screenshots from YouTube videos or local video files &mdash; right in your browser</p>
+      </div>
+
+      <div class="card mode-selector">
+        <button class="mode-btn active" data-mode="youtube" id="mode-youtube-btn">
+          <span class="mode-icon">&#128279;</span> YouTube URL
+        </button>
+        <button class="mode-btn" data-mode="file" id="mode-file-btn">
+          <span class="mode-icon">&#127909;</span> Local Video File
+        </button>
+      </div>
+
+      <!-- YouTube URL Mode -->
+      <div class="card" id="youtube-input-card">
+        <h3>YouTube Video URL</h3>
+        <div class="input-row">
+          <input type="text" id="youtube-url" placeholder="Paste link here... e.g. https://www.youtube.com/watch?v=..." autocomplete="off">
+          <button id="load-video-btn" class="icon-btn primary" title="Load video">
+            <span id="load-btn-icon">&#128269;</span>
+            <span id="load-btn-spinner" class="spinner hidden"></span>
+          </button>
+        </div>
+        <p id="youtube-error" class="error-text hidden"></p>
+        <p id="youtube-warning" class="warning-text hidden"></p>
+
+        <div id="metadata-card" class="metadata-card hidden">
+          <img id="meta-thumb" src="" alt="Video thumbnail">
+          <div class="metadata-info">
+            <div id="meta-title" class="meta-title"></div>
+            <div id="meta-channel" class="meta-sub"></div>
+            <div id="meta-duration" class="meta-sub meta-duration"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Local File Mode -->
+      <div class="card hidden" id="file-input-card">
+        <h3>Choose Local Video File(s)</h3>
+        <label class="file-drop" id="file-drop-zone">
+          <input type="file" id="video-file-input" accept="video/*" multiple hidden>
+          <span class="file-drop-icon">&#128193;</span>
+          <span id="file-drop-label">Tap to choose video file(s), or drag &amp; drop here</span>
+        </label>
+        <p class="hint-text">Frames are extracted instantly and privately &mdash; nothing is uploaded, everything runs on your device.</p>
+        <div id="file-metadata-list" class="file-list"></div>
+      </div>
+
+      <!-- Time Range -->
+      <div class="card hidden" id="range-card">
+        <h3>Selected Range</h3>
+        <div class="range-labels">
+          <span id="range-start-label">Start: 00:00</span>
+          <span id="range-end-label">End: 00:00</span>
+        </div>
+        <div class="dual-range" id="dual-range">
+          <div class="dual-range-track"></div>
+          <div class="dual-range-fill" id="dual-range-fill"></div>
+          <input type="range" id="range-start" min="0" max="100" value="0" step="1">
+          <input type="range" id="range-end" min="0" max="100" value="100" step="1">
+        </div>
+        <p class="hint-text" id="range-multi-hint">Multiple files selected &mdash; each file will be processed in full (range selection applies to single videos only).</p>
+      </div>
+
+      <!-- Extraction Settings -->
+      <div class="card">
+        <h3>Extraction Settings</h3>
+        <div class="row two-col" id="interval-row">
+          <div class="field">
+            <label for="interval-input">Interval</label>
+            <input type="number" id="interval-input" min="1" value="10" inputmode="numeric">
+          </div>
+          <div class="field">
+            <label for="unit-select">Unit</label>
+            <select id="unit-select">
+              <option value="Seconds">Seconds</option>
+              <option value="Minutes">Minutes</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="output-folder">Output Folder Name</label>
+          <input type="text" id="output-folder" value="FrameGrabber" autocomplete="off">
+        </div>
+      </div>
+
+      <!-- Advanced -->
+      <div class="card">
+        <button class="advanced-toggle" id="advanced-toggle" type="button">
+          <span class="advanced-toggle-label">&#9881;&#65039; Advanced Customizations</span>
+          <span id="advanced-arrow" class="advanced-arrow">&#9662;</span>
+        </button>
+        <div class="advanced-content hidden" id="advanced-content">
+          <div class="field">
+            <label for="filename-pattern">Filename Format</label>
+            <input type="text" id="filename-pattern" value="{title}_frame_{timestamp}" autocomplete="off">
+            <p class="hint-text">Use placeholders: {title}, {timestamp}, {index}</p>
+          </div>
+
+          <hr>
+
+          <div class="row toggle-row">
+            <div class="toggle-text">
+              <strong>Scene-Change Detection</strong>
+              <p class="hint-text">Scans the video and grabs frames on major visual cuts instead of fixed intervals</p>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="scene-change-toggle">
+              <span class="slider-toggle"></span>
+            </label>
+          </div>
+
+          <div class="field hidden" id="scene-threshold-field">
+            <label>Scene Sensitivity (Cut Threshold): <span id="scene-threshold-value">0.40</span></label>
+            <input type="range" id="scene-threshold" min="0.05" max="0.8" step="0.05" value="0.4">
+            <p class="hint-text">Lower means more sensitive (extra cuts/frames). Higher is less sensitive.</p>
+          </div>
+        </div>
+      </div>
+
+      <p id="start-error" class="error-text hidden"></p>
+
+      <button id="start-btn" class="primary-btn large">
+        <span>&#9654;</span> <span id="start-btn-label">Start Grabbing Frames</span>
+      </button>
+
+      <div style="height: 48px"></div>
+    </section>
+
+    <!-- ============ PROCESSING VIEW ============ -->
+    <section id="view-processing" class="view">
+
+      <div class="card processing-card" id="processing-progress-card">
+        <h2 class="processing-title">Extracting Frames</h2>
+
+        <img id="proc-thumb" class="proc-thumb hidden" src="" alt="">
+        <div id="proc-video-label" class="proc-title"></div>
+
+        <div class="progress-bar">
+          <div id="proc-progress-fill" class="progress-fill"></div>
+        </div>
+        <div class="row">
+          <span id="proc-percent" class="progress-stat">0% Done</span>
+          <span id="proc-frames" class="progress-stat">0 / 0 frames</span>
+        </div>
+
+        <hr>
+
+        <div class="stats">
+          <div class="row"><span class="stat-label">Current Timestamp:</span><strong id="proc-timestamp">N/A</strong></div>
+          <div class="row" id="proc-eta-row"><span class="stat-label">Est. Time Remaining:</span><strong id="proc-eta">--</strong></div>
+          <div class="row"><span class="stat-label">Status:</span><strong id="proc-status" class="proc-status-text">Initializing extraction pipeline...</strong></div>
+        </div>
+
+        <button id="cancel-btn" class="danger-btn large">
+          <span>&#10005;</span> Cancel Extraction
+        </button>
+      </div>
+
+      <div class="card status-card hidden" id="proc-result-card">
+        <div id="proc-result-icon" class="result-icon"></div>
+        <h2 id="proc-result-title"></h2>
+        <p id="proc-result-desc"></p>
+        <button id="proc-primary-btn" class="primary-btn large"></button>
+        <button id="proc-secondary-btn" class="secondary-btn large"></button>
+      </div>
+    </section>
+
+    <!-- ============ GALLERY VIEW ============ -->
+    <section id="view-gallery" class="view">
+      <h2 class="view-heading">Saved Frames</h2>
+
+      <div id="gallery-folders" class="chip-row hidden"></div>
+
+      <div class="row gallery-actions hidden" id="gallery-actions">
+        <button id="download-zip-btn" class="secondary-btn">&#11015;&#65039; Download ZIP</button>
+        <button id="clear-gallery-btn" class="danger-btn-outline">&#128465;&#65039; Clear</button>
+      </div>
+
+      <div id="gallery-empty" class="empty-state">
+        <span class="empty-icon">&#11088;</span>
+        <strong>No frames found</strong>
+        <p>Extract some frames from a YouTube video or local file first.</p>
+      </div>
+
+      <div id="gallery-grid" class="gallery-grid"></div>
+    </section>
+
+    <!-- ============ SETTINGS VIEW ============ -->
+    <section id="view-settings" class="view">
+      <h2 class="view-heading">Settings</h2>
+
+      <div class="card">
+        <h3 class="card-section-title">Extraction Defaults</h3>
+
+        <div class="row">
+          <div class="toggle-text">
+            <strong>Default Interval</strong>
+            <p class="hint-text">Standard interval step used on the Home screen</p>
+          </div>
+          <div class="stepper">
+            <button id="interval-minus" class="stepper-btn" type="button">&minus;</button>
+            <span id="default-interval-value" class="stepper-value">10 s</span>
+            <button id="interval-plus" class="stepper-btn" type="button">+</button>
+          </div>
+        </div>
+
+        <hr>
+
+        <div class="field">
+          <div class="row">
+            <strong>Default JPEG Quality</strong>
+            <span id="default-quality-value" class="accent-value">85%</span>
+          </div>
+          <input type="range" id="default-quality" min="10" max="100" step="1" value="85">
+          <p class="hint-text">Lower quality reduces output file size but increases compression artifacts.</p>
+        </div>
+
+        <hr>
+
+        <div class="row">
+          <div class="toggle-text">
+            <strong>Maximum Frame Resolution</strong>
+            <p class="hint-text">Frames are scaled down if the source video is larger.</p>
+          </div>
+          <select id="default-resolution">
+            <option value="Original">Original</option>
+            <option value="1080p">1080p</option>
+            <option value="720p" selected>720p</option>
+            <option value="480p">480p</option>
+            <option value="360p">360p</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 class="card-section-title">Appearance &amp; Theme</h3>
+        <div class="row">
+          <div class="toggle-text">
+            <strong>Dark Mode</strong>
+            <p class="hint-text">Uses obsidian-slate colors for visual comfort</p>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="dark-mode-toggle" checked>
+            <span class="slider-toggle"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="card about-card">
+        <span class="about-icon">&#8505;&#65039;</span>
+        <div>
+          <strong>FrameGrabber Web</strong>
+          <p>Version 1.0 &mdash; Browser Edition</p>
+          <p class="hint-text">Runs entirely on your device. No video is ever uploaded to a server.</p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Bottom Navigation -->
+  <nav class="bottom-nav" id="bottom-nav">
+    <button class="nav-item active" data-view="home">
+      <span class="nav-icon">&#127968;</span><span>Home</span>
+    </button>
+    <button class="nav-item" data-view="gallery">
+      <span class="nav-icon">&#128247;</span><span>Gallery</span>
+    </button>
+    <button class="nav-item" data-view="settings">
+      <span class="nav-icon">&#9881;&#65039;</span><span>Settings</span>
+    </button>
+  </nav>
+
+  <!-- Hidden video element used as the extraction source -->
+  <video id="source-video" crossorigin="anonymous" playsinline muted style="display:none"></video>
+
+</div>
+
+<!-- Fullscreen Image Preview Modal -->
+<div id="preview-modal" class="modal hidden">
+  <div class="modal-backdrop" id="modal-backdrop"></div>
+  <div class="modal-content">
+    <img id="preview-img" src="" alt="">
+    <div class="modal-sheet">
+      <div class="modal-filename" id="preview-name"></div>
+      <div class="row">
+        <span id="preview-folder" class="hint-text"></span>
+        <span id="preview-size" class="hint-text"></span>
+      </div>
+      <div class="row modal-actions">
+        <button id="preview-share-btn" class="primary-btn">&#128229; Save</button>
+        <button id="preview-delete-btn" class="danger-btn">&#128465;&#65039; Delete</button>
+      </div>
+      <button id="preview-close-btn" class="secondary-btn">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast notification -->
+<div id="toast" class="toast hidden"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="js/db.js"></script>
+<script src="js/extractor.js"></script>
+<script src="js/youtube.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
